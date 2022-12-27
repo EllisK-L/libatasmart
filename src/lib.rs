@@ -7,16 +7,26 @@
 //! more reliable and also a lot more performant!
 //!
 
+
 use libatasmart_sys::*;
 use nix::errno::Errno;
-use std::{ffi::CString, path::{Path, PathBuf}, mem::MaybeUninit};
+use std::{ffi::{CString, c_void, CStr}, path::{Path, PathBuf}, mem::MaybeUninit};
+use libffi::high::
 pub use libatasmart_sys::SkSmartSelfTest;
 pub extern crate nix;
+
+extern "C" fn test_callback(d: *mut SkDisk, data: *const SkSmartAttributeParsedData, userdata: *mut c_void) {
+    unsafe {
+        let name = CStr::from_ptr((*data).name);
+        let name_str = name.to_str().unwrap();
+        println!("{name_str}");
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
+    use std::{path::Path, ptr::null};
 
     #[test]
     fn test_new_failure() {
@@ -24,6 +34,14 @@ mod tests {
             Ok(_) => panic!("Opening /dev/null succeeded"),
             Err(e) => assert_eq!(Errno::ENODEV, e),
         }
+    }
+    #[test]
+    fn test_new_functionailty(){
+        println!("Hello");
+        let mut d = Disk::new(Path::new("/dev/sda")).unwrap();
+        d.smart_get_attributes(test_callback, std::ptr::null_mut()).unwrap();
+
+        assert!(true);
     }
     /*
     #[test]
@@ -37,7 +55,17 @@ mod tests {
     */
 }
 
+// pub struct SmartAttribute {
+//     id: u16,
+//     name: String,
+//     value: u16,
+//     worst: u16,
+//     threshold: u16,
+//     raw: u32,
+// }
+
 /// Our ata smart disk
+
 pub struct Disk {
     /// The path in the filesystem to the hard drive
     pub disk: PathBuf,
@@ -256,6 +284,28 @@ impl Disk {
             }
             Ok(overall)
         }
+    }
+
+    // pub fn smart_get_attributes(&mut self, attr_parse_cb: extern fn(d: *mut SkDisk, data: *const SkSmartAttributeParsedData, userdata: *mut c_void), userdata: *mut c_void) -> Result<(), Errno> {
+    //     unsafe {
+    //         let ret = sk_disk_smart_parse_attributes(self.skdisk, attr_parse_cb, userdata);
+    //         if ret < 0 {
+    //             let fail = nix::errno::errno();
+    //             return Err(Errno::from_i32(fail));
+    //         }
+    //     }
+    //     Ok(())
+    // }
+
+    pub fn smart_get_attributes(&mut self, attr_parse_cb: extern fn(d: *mut SkDisk, data: *const SkSmartAttributeParsedData, userdata: *mut c_void), userdata: *mut c_void) -> Result<(), Errno> {
+        unsafe {
+            let ret = sk_disk_smart_parse_attributes(self.skdisk, attr_parse_cb, userdata);
+            if ret < 0 {
+                let fail = nix::errno::errno();
+                return Err(Errno::from_i32(fail));
+            }
+        }
+        Ok(())
     }
 }
 
