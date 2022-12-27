@@ -10,23 +10,22 @@
 
 use libatasmart_sys::*;
 use nix::errno::Errno;
-use std::{ffi::{CString, c_void, CStr}, path::{Path, PathBuf}, mem::MaybeUninit};
-use libffi::high::
+use std::{ffi::{CString, c_void}, path::{Path, PathBuf}, mem::MaybeUninit};
 pub use libatasmart_sys::SkSmartSelfTest;
 pub extern crate nix;
 
-extern "C" fn test_callback(d: *mut SkDisk, data: *const SkSmartAttributeParsedData, userdata: *mut c_void) {
-    unsafe {
-        let name = CStr::from_ptr((*data).name);
-        let name_str = name.to_str().unwrap();
-        println!("{name_str}");
-    }
-}
+// extern "C" fn test_callback(d: *mut SkDisk, data: *const SkSmartAttributeParsedData, userdata: *mut c_void) {
+//     unsafe {
+//         let name = CStr::from_ptr((*data).name);
+//         let name_str = name.to_str().unwrap();
+//         println!("{name_str}");
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{path::Path, ptr::null};
+    use std::{path::Path};
 
     #[test]
     fn test_new_failure() {
@@ -35,14 +34,14 @@ mod tests {
             Err(e) => assert_eq!(Errno::ENODEV, e),
         }
     }
-    #[test]
-    fn test_new_functionailty(){
-        println!("Hello");
-        let mut d = Disk::new(Path::new("/dev/sda")).unwrap();
-        d.smart_get_attributes(test_callback, std::ptr::null_mut()).unwrap();
+    // #[test]
+    // fn test_new_functionailty(){
+    //     println!("Hello");
+    //     let mut d = Disk::new(Path::new("/dev/sda")).unwrap();
+    //     d.smart_get_attributes(test_callback, std::ptr::null_mut()).unwrap();
 
-        assert!(true);
-    }
+    //     assert!(true);
+    // }
     /*
     #[test]
     fn test_smart(){
