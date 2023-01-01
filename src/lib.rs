@@ -10,7 +10,7 @@
 
 use libatasmart_sys::*;
 use nix::errno::Errno;
-use std::{ffi::{CString, c_void}, path::{Path, PathBuf}, mem::MaybeUninit};
+use std::{ffi::{CString, c_void, CStr}, path::{Path, PathBuf}, mem::MaybeUninit, ptr::null};
 pub use libatasmart_sys::SkSmartSelfTest;
 pub extern crate nix;
 
@@ -25,7 +25,7 @@ pub extern crate nix;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{path::Path};
+    use std::{path::Path, ffi::CStr};
 
     #[test]
     fn test_new_failure() {
@@ -34,24 +34,16 @@ mod tests {
             Err(e) => assert_eq!(Errno::ENODEV, e),
         }
     }
-    // #[test]
-    // fn test_new_functionailty(){
-    //     println!("Hello");
-    //     let mut d = Disk::new(Path::new("/dev/sda")).unwrap();
-    //     d.smart_get_attributes(test_callback, std::ptr::null_mut()).unwrap();
 
-    //     assert!(true);
-    // }
-    /*
     #[test]
-    fn test_smart(){
+    fn test_identify_final(){
         let mut disk = Disk::new(Path::new("/dev/sda")).unwrap();
-        let ret = disk.get_smart_status();
-        println!("Smart status: {:?}", ret);
-        println!("Dumping disk stats");
-        let ret = disk.dump();
+        let identify = disk.identify_parse().unwrap();
+        println!("{}", identify.firmware);
+        println!("{}", identify.model);
+        println!("{}", identify.serial);
     }
-    */
+
 }
 
 // pub struct SmartAttribute {
@@ -62,6 +54,13 @@ mod tests {
 //     threshold: u16,
 //     raw: u32,
 // }
+
+#[derive(Debug)]
+pub struct IdentifyParsedData{
+    pub serial: String,
+    pub firmware: String,
+    pub model: String,
+}
 
 /// Our ata smart disk
 
@@ -285,16 +284,34 @@ impl Disk {
         }
     }
 
-    // pub fn smart_get_attributes(&mut self, attr_parse_cb: extern fn(d: *mut SkDisk, data: *const SkSmartAttributeParsedData, userdata: *mut c_void), userdata: *mut c_void) -> Result<(), Errno> {
-    //     unsafe {
-    //         let ret = sk_disk_smart_parse_attributes(self.skdisk, attr_parse_cb, userdata);
-    //         if ret < 0 {
-    //             let fail = nix::errno::errno();
-    //             return Err(Errno::from_i32(fail));
-    //         }
-    //     }
-    //     Ok(())
-    // }
+    pub fn identify_parse(&mut self) -> Result<IdentifyParsedData, Errno> {
+        let mut available: SkBool = 0;
+        unsafe {
+            sk_disk_identify_is_available(self.skdisk, &mut available);
+            if available == 1{
+                let parsed_data_pointer: *const SkIdentifyParsedData = null();
+                let ret = sk_disk_identify_parse(self.skdisk, &parsed_data_pointer);
+                if ret < 0 {
+                    let fail = nix::errno::errno();
+                    return Err(Errno::from_i32(fail));
+                }
+                let model = CStr::from_ptr((*parsed_data_pointer).model.as_ptr()).to_str().unwrap();
+                let firmware = CStr::from_ptr((*parsed_data_pointer).firmware.as_ptr()).to_str().unwrap();
+                let serial = CStr::from_ptr((*parsed_data_pointer).serial.as_ptr()).to_str().unwrap();
+                
+                let parsed_data: IdentifyParsedData = IdentifyParsedData {
+                    serial: String::from(serial),
+                    firmware: String::from(firmware),
+                    model: String::from(model)
+                };
+                Ok(parsed_data)
+            }
+            else{
+                let fail = nix::errno::errno();
+                return Err(Errno::from_i32(fail));
+            }
+        }
+    }
 
     pub fn smart_get_attributes(&mut self, attr_parse_cb: extern fn(d: *mut SkDisk, data: *const SkSmartAttributeParsedData, userdata: *mut c_void), userdata: *mut c_void) -> Result<(), Errno> {
         unsafe {
