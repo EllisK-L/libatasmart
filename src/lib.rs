@@ -44,6 +44,13 @@ mod tests {
         println!("{}", identify.serial);
     }
 
+    #[test]
+    fn test_other(){
+        let mut disk = Disk::new(Path::new("/dev/sda")).unwrap();
+        let size = disk.get_power_on().unwrap();
+        println!("{size}");
+    }
+
 }
 
 // pub struct SmartAttribute {
@@ -284,6 +291,7 @@ impl Disk {
         }
     }
 
+    // Get the model, firmware, and serial of the disk as a IdentifyParsedDatastruct
     pub fn identify_parse(&mut self) -> Result<IdentifyParsedData, Errno> {
         let mut available: SkBool = 0;
         unsafe {
@@ -313,6 +321,8 @@ impl Disk {
         }
     }
 
+    /// Get the smart attributes of the disk
+    /// Will require an externel C function of the style extern "C" fn(d: *mut SkDisk, data: *const SkSmartAttributeParsedData, userdata: *mut ::libc::c_void)
     pub fn smart_get_attributes(&mut self, attr_parse_cb: extern fn(d: *mut SkDisk, data: *const SkSmartAttributeParsedData, userdata: *mut c_void), userdata: *mut c_void) -> Result<(), Errno> {
         unsafe {
             let ret = sk_disk_smart_parse_attributes(self.skdisk, attr_parse_cb, userdata);
