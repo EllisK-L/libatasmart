@@ -11,5 +11,5 @@ keywords = ["storage"]
 edition = '2018'
 
 [dependencies]
-libatasmart-sys = "~0.2"
+libatasmart-sys = { git = "https://github.com/EllisK-L/libatasmart-sys", branch = "attribute_struct_fix" }
 nix = "~0.26"
